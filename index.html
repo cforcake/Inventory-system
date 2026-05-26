@@ -707,7 +707,6 @@
         <button class="kbtn k-enter" onclick="doLogin()">🔓 Login</button>
       </div>
     </div>
-  <div style="text-align:center;margin-top:14px"><button onclick="testConn()" style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:pointer;font-family:Poppins,sans-serif;text-decoration:underline">🔍 Test DB Connection</button></div>
   </div>
 </div>
 
@@ -1211,19 +1210,7 @@ const DB = {
     return localStorage.getItem(key);
   },
   async setSetting(key, value) {
-    if (ONLINE) {
-      // Use UPSERT so it works whether the row already exists or not
-      const url = `${CONFIG.supabaseUrl}/rest/v1/app_settings`;
-      const h = {
-        'apikey': CONFIG.supabaseKey,
-        'Authorization': `Bearer ${CONFIG.supabaseKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates,return=minimal'
-      };
-      const r = await fetch(url, { method:'POST', headers:h, body: JSON.stringify({key, value}) });
-      if (!r.ok) throw new Error(`DB error: ${r.status} ${r.statusText}`);
-      return null;
-    }
+    if (ONLINE) return this._req('app_settings','PATCH',{value},`?key=eq.${key}`);
     localStorage.setItem(key, value);
   },
 };
@@ -1616,70 +1603,39 @@ async function doLogin(){
 
   // Brute-force lockout check
   const lockSecs = SEC.isLockedOut();
-  if(lockSecs){ showErr('🔒 Too many attempts. Try again in '+lockSecs+'s.'); kClear(); return; }
+  if(lockSecs){ showErr(`🔒 Too many attempts. Try again in ${lockSecs}s.`); kClear(); return; }
 
-  try {
-    // Hash entered PIN and compare against stored hash (auto-migrates plain-text on first use)
-    const aHash  = await SEC.getHashedPin('adminPin','2525');
-    const sHash  = await SEC.getHashedPin('staffPin','5525');
-    const entered = await SEC.hash(pin);
+  // Hash entered PIN and compare against stored hash (auto-migrates plain-text on first use)
+  const aHash  = await SEC.getHashedPin('adminPin','2525');
+  const sHash  = await SEC.getHashedPin('staffPin','5525');
+  const entered = await SEC.hash(pin);
 
-    if(selectedRole==='admin' && entered===aHash){
-      SEC.clearFails();
-      currentUser='admin';
-      document.getElementById('loginPage').classList.add('hidden');
-      document.getElementById('adminDash').classList.remove('hidden');
-      kClear(); loadAdminDash();
-    } else if(selectedRole==='staff' && entered===sHash){
-      SEC.clearFails();
-      currentUser='staff';
-      document.getElementById('loginPage').classList.add('hidden');
-      document.getElementById('staffDash').classList.remove('hidden');
-      kClear(); loadStaffDash();
-    } else {
-      const fails = SEC.recordFail();
-      const rem   = SEC.MAX_ATTEMPTS - fails;
-      showErr(rem <= 0
-        ? '🔒 Account locked for 5 minutes.'
-        : '❌ Incorrect PIN — '+rem+' attempt'+(rem!==1?'s':'')+' remaining');
-      kClear();
-    }
-  } catch(err) {
-    console.error('Login error:', err);
-    const msg = err && err.message ? err.message : String(err);
-    showErr('⚠️ Login error: ' + msg);
+  if(selectedRole==='admin' && entered===aHash){
+    SEC.clearFails();
+    currentUser='admin';
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('adminDash').classList.remove('hidden');
+    kClear(); loadAdminDash();
+  } else if(selectedRole==='staff' && entered===sHash){
+    SEC.clearFails();
+    currentUser='staff';
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('staffDash').classList.remove('hidden');
+    kClear(); loadStaffDash();
+  } else {
+    const fails = SEC.recordFail();
+    const rem   = SEC.MAX_ATTEMPTS - fails;
+    showErr(rem <= 0
+      ? '🔒 Account locked for 5 minutes.'
+      : `❌ Incorrect PIN — ${rem} attempt${rem!==1?'s':''} remaining`);
     kClear();
-  }
-}
-
-async function testConn(){
-  const btn = event.target;
-  btn.textContent = '⏳ Testing...';
-  try {
-    const url = CONFIG.supabaseUrl + '/rest/v1/app_settings?limit=1';
-    const r = await fetch(url, {
-      headers: {
-        'apikey': CONFIG.supabaseKey,
-        'Authorization': 'Bearer ' + CONFIG.supabaseKey
-      }
-    });
-    const text = await r.text();
-    btn.textContent = '🔍 Test DB Connection';
-    if(r.ok){
-      showErr('✅ Connected! Status: ' + r.status + ' Data: ' + text.substring(0,60));
-    } else {
-      showErr('❌ HTTP ' + r.status + ': ' + text.substring(0,80));
-    }
-  } catch(e) {
-    btn.textContent = '🔍 Test DB Connection';
-    showErr('❌ Fetch error: ' + e.message);
   }
 }
 
 function showErr(msg){
   const el=document.getElementById('pinError');
   el.textContent=msg; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'),8000);
+  setTimeout(()=>el.classList.remove('show'),3000);
 }
 
 function logout(){
