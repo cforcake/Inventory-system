@@ -408,34 +408,11 @@
 
     /* ══ PRODUCT GRIDS ══ */
     .fb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:24px}
-    .fb-card{background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:16px;transition:all .2s;position:relative}
+    .fb-card{background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:16px;transition:all .2s}
     .fb-card:hover{border-color:#f9a8c9;box-shadow:0 4px 16px rgba(216,27,96,.1);transform:translateY(-1px)}
     .fb-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px}
     .fb-cat{font-size:10px;color:var(--text-3);margin-bottom:9px}
     .fb-price{font-size:14px;font-weight:800;color:var(--rose);margin-bottom:10px}
-
-    /* ══ PRODUCT TILES (Admin Products tab) ══ */
-    .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px}
-    .prod-tile{background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:16px 16px 14px;position:relative;transition:all .2s;cursor:default}
-    .prod-tile:hover{border-color:#f9a8c9;box-shadow:0 4px 16px rgba(216,27,96,.1);transform:translateY(-1px)}
-    .pt-top{margin-bottom:11px;padding-right:22px}
-    .pt-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:5px;line-height:1.3}
-    .pt-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;padding:9px 8px;background:var(--bg-subtle);border-radius:var(--r-sm)}
-    .pt-stat{text-align:center}
-    .pt-stat-lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);margin-bottom:3px}
-    .pt-stat-val{font-size:14px;font-weight:800;color:var(--text)}
-    .pt-stat-val.rose{color:var(--rose)}
-    .pt-stat-val.v-fresh{color:var(--fresh)}
-    .pt-stat-val.v-grey{color:var(--text-3)}
-    .pt-btns{display:flex;gap:7px}
-    .pt-btns .act-btn{flex:1;text-align:center;padding:7px 4px;font-size:11px}
-
-    /* ══ DRAG HANDLE & STATES ══ */
-    .drag-handle{position:absolute;top:10px;right:10px;font-size:15px;color:var(--text-3);cursor:grab;line-height:1;opacity:.35;transition:opacity .2s;user-select:none;-webkit-user-select:none}
-    .drag-handle:active{cursor:grabbing}
-    .prod-tile:hover .drag-handle,.fb-card:hover .drag-handle{opacity:.75}
-    [draggable].dragging{opacity:.35;transform:scale(.97);box-shadow:none!important}
-    [draggable].drag-over{border-color:var(--rose)!important;box-shadow:0 0 0 2px rgba(216,27,96,.3)!important;transform:translateY(-2px)!important}
 
     .co-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px}
     .co-card{border-radius:var(--r-sm);padding:16px;border:1.5px solid}
@@ -635,7 +612,6 @@
       .fb-grid{grid-template-columns:repeat(2,1fr)}
       .co-grid{grid-template-columns:repeat(2,1fr)}
       .ed-grid{grid-template-columns:repeat(2,1fr)}
-      .prod-grid{grid-template-columns:repeat(2,1fr)}
       .subtab-bar{border-radius:var(--r-sm)}
       .subtab-btn{font-size:12px;padding:8px 12px}
     }
@@ -645,7 +621,6 @@
       .frow{grid-template-columns:1fr}
       .fb-grid{grid-template-columns:repeat(2,1fr)}
       .ed-grid{grid-template-columns:repeat(2,1fr)}
-      .prod-grid{grid-template-columns:repeat(2,1fr)}
       .date-bar{flex-direction:column;align-items:flex-start;gap:8px}
       .date-bar input[type=date]{width:100%}
       .date-bar .hint{display:none}
@@ -807,7 +782,12 @@
         <div><h2>🍰 Products</h2><p class="sub">Manage catalogue & shelf life</p></div>
         <button class="btn btn-p" onclick="openModal('addProdModal')">➕ Add Product</button>
       </div>
-      <div id="prodGrid" class="prod-grid"></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Product Name</th><th>Category</th><th>Price</th><th>Shelf Life</th><th>Stock Today</th><th>Actions</th></tr></thead>
+          <tbody id="prodTbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- ── INVENTORY BOARD ── -->
@@ -1839,151 +1819,30 @@ async function drawSalesChart(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PRODUCT ORDER (drag-to-reorder, shared by Products + Start Day)
-════════════════════════════════════════════════════════════ */
-function getProductOrder(){
-  try{ return JSON.parse(localStorage.getItem('productOrder')||'[]'); }
-  catch(e){ return []; }
-}
-function saveProductOrder(ids){
-  localStorage.setItem('productOrder', JSON.stringify(ids));
-}
-function applyOrder(products){
-  const order=getProductOrder();
-  if(!order.length) return products;
-  const map=new Map(products.map(p=>[p.id,p]));
-  const sorted=order.map(id=>map.get(id)).filter(Boolean);
-  const rest=products.filter(p=>!order.includes(p.id));
-  return [...sorted,...rest];
-}
-
-/* ── Drag-sort engine (mouse + touch, works on any grid) ── */
-function initDragSort(grid){
-  function cards(){ return [...grid.querySelectorAll('[draggable="true"]')]; }
-
-  /* ── Mouse / pointer drag ── */
-  function onDragStart(e){
-    this.classList.add('dragging');
-    e.dataTransfer.effectAllowed='move';
-    e.dataTransfer.setData('text/plain', this.dataset.id);
-  }
-  function onDragOver(e){
-    e.preventDefault();
-    e.dataTransfer.dropEffect='move';
-    if(this!==grid.querySelector('.dragging')){
-      cards().forEach(c=>c.classList.remove('drag-over'));
-      this.classList.add('drag-over');
-    }
-  }
-  function onDrop(e){
-    e.preventDefault();
-    const src=grid.querySelector('.dragging');
-    if(src && this!==src){
-      const all=cards(), si=all.indexOf(src), ti=all.indexOf(this);
-      if(si<ti) this.after(src); else this.before(src);
-    }
-    cards().forEach(c=>c.classList.remove('drag-over'));
-    saveProductOrder(cards().map(c=>parseInt(c.dataset.id)));
-  }
-  function onDragEnd(){
-    this.classList.remove('dragging');
-    cards().forEach(c=>c.classList.remove('drag-over'));
-    saveProductOrder(cards().map(c=>parseInt(c.dataset.id)));
-  }
-
-  /* ── Touch drag ── */
-  let tEl=null,tClone=null,tOX=0,tOY=0;
-  function onTouchStart(e){
-    const el=e.currentTarget;
-    const r=el.getBoundingClientRect();
-    tOX=e.touches[0].clientX-r.left; tOY=e.touches[0].clientY-r.top;
-    tEl=el; el.classList.add('dragging');
-    tClone=el.cloneNode(true);
-    Object.assign(tClone.style,{
-      position:'fixed',zIndex:'9999',width:r.width+'px',
-      pointerEvents:'none',opacity:'0.85',
-      transform:'scale(1.04)',
-      boxShadow:'0 16px 40px rgba(0,0,0,.22)',
-      borderRadius:getComputedStyle(el).borderRadius,
-      transition:'none'
-    });
-    document.body.appendChild(tClone);
-    moveClone(e.touches[0]);
-  }
-  function moveClone(t){ if(tClone){ tClone.style.left=(t.clientX-tOX)+'px'; tClone.style.top=(t.clientY-tOY)+'px'; } }
-  function onTouchMove(e){
-    e.preventDefault();
-    moveClone(e.touches[0]);
-    tClone.style.display='none';
-    const under=document.elementFromPoint(e.touches[0].clientX,e.touches[0].clientY);
-    tClone.style.display='';
-    const tgt=under?under.closest('[draggable="true"]'):null;
-    cards().forEach(c=>c.classList.remove('drag-over'));
-    if(tgt&&tgt!==tEl) tgt.classList.add('drag-over');
-  }
-  function onTouchEnd(e){
-    if(!tEl) return;
-    if(tClone){ document.body.removeChild(tClone); tClone=null; }
-    const t=e.changedTouches[0];
-    const under=document.elementFromPoint(t.clientX,t.clientY);
-    const tgt=under?under.closest('[draggable="true"]'):null;
-    cards().forEach(c=>c.classList.remove('drag-over'));
-    tEl.classList.remove('dragging');
-    if(tgt&&tgt!==tEl){
-      const all=cards(), si=all.indexOf(tEl), ti=all.indexOf(tgt);
-      if(si<ti) tgt.after(tEl); else tgt.before(tEl);
-    }
-    saveProductOrder(cards().map(c=>parseInt(c.dataset.id)));
-    tEl=null;
-  }
-
-  function bind(card){
-    card.addEventListener('dragstart',onDragStart);
-    card.addEventListener('dragover',onDragOver);
-    card.addEventListener('drop',onDrop);
-    card.addEventListener('dragend',onDragEnd);
-    card.addEventListener('touchstart',onTouchStart,{passive:false});
-    card.addEventListener('touchmove',onTouchMove,{passive:false});
-    card.addEventListener('touchend',onTouchEnd);
-  }
-  cards().forEach(bind);
-}
-
-/* ═══════════════════════════════════════════════════════════
    PRODUCTS
 ════════════════════════════════════════════════════════════ */
 async function loadProdTable(){
   const products=await DB.getProducts();
   const inventory=await DB.getInventory();
   const t=today();
-  const grid=document.getElementById('prodGrid');
-  grid.innerHTML='';
+  const tbody=document.getElementById('prodTbody');
+  tbody.innerHTML='';
   const catCls={Cakes:'cakes',Pastries:'pastries',Desserts:'desserts'};
-  applyOrder(products).forEach(p=>{
+  products.forEach(p=>{
     const sl=p.shelfLife||p.shelf_life||4;
     const stock=inventory.filter(i=>i.productId===p.id&&i.date===t).reduce((a,i)=>a+i.quantity,0);
-    const tile=document.createElement('div');
-    tile.className='prod-tile';
-    tile.draggable=true;
-    tile.dataset.id=p.id;
-    tile.innerHTML=`
-      <div class="drag-handle" title="Drag to reorder">⠿</div>
-      <div class="pt-top">
-        <div class="pt-name">${p.name}</div>
-        <span class="cat-badge ${catCls[p.category]||'default'}">${p.category}</span>
-      </div>
-      <div class="pt-stats">
-        <div class="pt-stat"><div class="pt-stat-lbl">Price</div><div class="pt-stat-val rose">₹${p.price}</div></div>
-        <div class="pt-stat"><div class="pt-stat-lbl">Shelf</div><div class="pt-stat-val">${sl}d</div></div>
-        <div class="pt-stat"><div class="pt-stat-lbl">Stock</div><div class="pt-stat-val ${stock>0?'v-fresh':'v-grey'}">${stock>0?stock:'—'}</div></div>
-      </div>
-      <div class="pt-btns">
+    tbody.innerHTML+=`<tr>
+      <td><strong>${p.name}</strong></td>
+      <td><span class="cat-badge ${catCls[p.category]||'default'}">${p.category}</span></td>
+      <td><strong>₹${p.price}</strong></td>
+      <td><strong>${sl} days</strong></td>
+      <td>${stock>0?`<strong>${stock}</strong> units`:'<span style="color:#9ca3af">—</span>'}</td>
+      <td><div class="act-row">
         <button class="act-btn edt" onclick="openEditProd(${p.id})">✏️ Edit</button>
         <button class="act-btn del" onclick="deleteProd(${p.id})">🗑️ Delete</button>
-      </div>`;
-    grid.appendChild(tile);
+      </div></td>
+    </tr>`;
   });
-  initDragSort(grid);
 }
 
 async function addProduct(){
@@ -2292,13 +2151,8 @@ async function loadStartDay(){
   // Fresh batch grid
   const fbGrid=document.getElementById('fbGrid');
   fbGrid.innerHTML='';
-  applyOrder(products).forEach(p=>{
-    const card=document.createElement('div');
-    card.className='fb-card';
-    card.draggable=true;
-    card.dataset.id=p.id;
-    card.innerHTML=`
-      <div class="drag-handle" title="Drag to reorder">⠿</div>
+  products.forEach(p=>{
+    fbGrid.innerHTML+=`<div class="fb-card">
       <div class="fb-name">${p.name}</div>
       <div class="fb-cat">${p.category}</div>
       <div class="fb-price">₹${p.price}</div>
@@ -2306,10 +2160,9 @@ async function loadStartDay(){
         <button class="stp-btn" onclick="changeQty('start-${p.id}',-1)">−</button>
         <input type="number" class="stp-inp" id="start-${p.id}" value="0" min="0">
         <button class="stp-btn" onclick="changeQty('start-${p.id}',1)">+</button>
-      </div>`;
-    fbGrid.appendChild(card);
+      </div>
+    </div>`;
   });
-  initDragSort(fbGrid);
 }
 
 async function saveStartDay(){
