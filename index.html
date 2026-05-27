@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>C for Cake – Inventory</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -582,12 +582,83 @@
       touch-action:manipulation;
     }
 
+    /* ══ MOBILE: SIDEBAR INNER SCROLL ══ */
+    .sb-inner{
+      display:flex;flex-direction:column;height:100%;
+      overflow-y:auto;-webkit-overflow-scrolling:touch;
+    }
+    /* Sidebar nav scrolls independently; logout stays pinned */
+    .nav{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+    .sb-foot{flex-shrink:0;padding:12px 16px 20px;padding-bottom:max(20px,env(safe-area-inset-bottom))}
+
+    /* ══ MOBILE: LOGOUT BUTTON IN TOPBAR ══ */
+    .topbar-logout{
+      margin-left:auto;
+      background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);
+      border-radius:8px;padding:6px 12px;
+      color:#fff;font-size:12px;font-weight:700;font-family:'Poppins',sans-serif;
+      cursor:pointer;display:none;align-items:center;gap:6px;
+      -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+      min-height:40px;white-space:nowrap;
+    }
+    .topbar-logout:hover{background:rgba(255,255,255,.2)}
+
+    /* ══ MOBILE: SUBTAB BAR FIX ══ */
+    .subtab-bar{
+      display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;
+      gap:8px;padding-bottom:4px;margin-bottom:18px;
+      scrollbar-width:none;-webkit-scrollbar:{display:none}
+    }
+    .subtab-bar::-webkit-scrollbar{display:none}
+    .subtab-btn{
+      white-space:nowrap;flex-shrink:0;
+      background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--r-sm);
+      padding:9px 16px;font-size:13px;font-weight:600;font-family:'Poppins',sans-serif;
+      color:var(--text-2);cursor:pointer;transition:all .2s;min-height:44px;
+    }
+    .subtab-btn.active{background:linear-gradient(135deg,#fff0f5,#fce4ec);border-color:var(--rose);color:var(--rose)}
+
+    /* ══ MOBILE: YEAR SELECTOR ══ */
+    .year-selector-wrap{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+    .year-select{padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;font-family:'Poppins',sans-serif;background:var(--bg-card);color:var(--text);font-size:16px}
+    .year-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+
+    /* ══ MOBILE: FORM INPUTS — prevent iOS auto-zoom ══ */
+    .fg input,.fg select,.fg textarea{font-size:16px}
+    .fg input:focus,.fg select:focus{font-size:16px}
+
+    /* ══ MOBILE: PRODUCT REORDER BUTTONS ══ */
+    .reorder-btns{display:flex;flex-direction:column;gap:3px}
+    .reorder-btn{
+      width:28px;height:24px;border:1px solid var(--border);background:var(--bg-subtle);
+      border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;
+      justify-content:center;transition:all .15s;color:var(--text-2);
+      -webkit-tap-highlight-color:transparent;
+    }
+    .reorder-btn:hover{background:#fff0f5;border-color:#f9a8c9;color:var(--rose)}
+    .reorder-btn:disabled{opacity:.3;cursor:default}
+    .drag-handle{
+      cursor:grab;font-size:16px;color:var(--text-3);padding:4px 6px;
+      display:inline-flex;align-items:center;user-select:none;
+    }
+    .drag-handle:active{cursor:grabbing}
+    .prod-row-dragging{opacity:.5;background:#fff0f5!important}
+    .prod-row-over{border-top:2px solid var(--rose)!important}
+
+    /* ══ MOBILE: SAFE AREA PADDING ══ */
+    @supports(padding:max(0px)){
+      .main{padding-bottom:max(36px,env(safe-area-inset-bottom))}
+      .topbar{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}
+      .login-page{padding-bottom:max(24px,env(safe-area-inset-bottom))}
+    }
+
     @media(max-width:1024px){
       .fr-board{grid-template-columns:1fr 1fr}
       .g4{grid-template-columns:repeat(2,1fr)}
     }
     @media(max-width:900px){
       .topbar{display:flex}
+      .topbar-logout{display:inline-flex}
       .sb-close{display:flex}
       .sidebar{left:-100vw;right:auto;top:0;width:min(280px,85vw);height:100vh;transition:left .3s cubic-bezier(.4,0,.2,1);box-shadow:none;overflow:hidden}
       .sidebar.open{left:0;box-shadow:6px 0 36px rgba(0,0,0,.45)}
@@ -604,6 +675,9 @@
       .kbtn.k-enter{height:54px}
       .stp-btn{width:44px;height:44px;font-size:20px}
       .stp-inp{font-size:16px}
+      /* Fix subtab-bar overflow */
+      .subtab-bar{gap:6px}
+      .subtab-btn{font-size:12px;padding:8px 12px}
     }
     @media(max-width:768px){
       .g4{grid-template-columns:1fr 1fr}
@@ -612,8 +686,8 @@
       .fb-grid{grid-template-columns:repeat(2,1fr)}
       .co-grid{grid-template-columns:repeat(2,1fr)}
       .ed-grid{grid-template-columns:repeat(2,1fr)}
-      .subtab-bar{border-radius:var(--r-sm)}
-      .subtab-btn{font-size:12px;padding:8px 12px}
+      /* Analytics year insights full-width */
+      #yearInsights{grid-template-columns:1fr!important}
     }
     @media(max-width:600px){
       .g4{grid-template-columns:1fr 1fr}
@@ -622,11 +696,14 @@
       .fb-grid{grid-template-columns:repeat(2,1fr)}
       .ed-grid{grid-template-columns:repeat(2,1fr)}
       .date-bar{flex-direction:column;align-items:flex-start;gap:8px}
-      .date-bar input[type=date]{width:100%}
+      .date-bar input[type=date]{width:100%;font-size:16px}
       .date-bar .hint{display:none}
       .tbl-wrap{border-radius:10px}
       th{font-size:10px;padding:10px 10px}
       td{font-size:12px;padding:10px 10px}
+      /* Products table: hide less critical columns on small screens */
+      .prod-col-shelf{display:none}
+      .prod-col-stock{display:none}
     }
     @media(max-width:480px){
       .main{padding:12px 10px}
@@ -654,12 +731,24 @@
       .act-btn{font-size:10px;padding:5px 8px}
       /* Bigger stepper touches */
       .stp-btn{width:46px;height:46px;font-size:20px}
-      .stp-inp{font-size:15px}
+      .stp-inp{font-size:16px}
       .fr-col-hdr{padding:12px 12px}
       .fr-card{padding:12px}
       .fc-qty{font-size:18px}
       .eod-lock,.sod-lock{padding:28px 20px}
       .confirm-box{padding:28px 20px}
+      /* Modal smaller padding */
+      .modal{padding:10px}
+      .modal-box{padding:22px 18px;border-radius:16px}
+      /* Page header button goes full width on tiny screens */
+      .page-hdr .btn{width:100%;justify-content:center}
+      /* Reorder col smaller on mobile */
+      .reorder-col{display:none}
+    }
+    @media(max-width:360px){
+      .fb-grid{grid-template-columns:1fr}
+      .kbtn{height:52px;font-size:18px}
+      .keypad{gap:7px;max-width:240px}
     }
   </style>
 </head>
@@ -721,6 +810,7 @@
       <div class="b"></div><div class="b"></div><div class="b"></div>
     </button>
     <div class="topbar-brand"><div class="tb-logo-wrap"><img class="tb-logo-img logo-img" id="adminTbLogo" alt="C for Cake"></div><small style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);margin-left:6px">Admin</small></div>
+    <button class="topbar-logout" onclick="logout()" aria-label="Logout">🚪 Logout</button>
   </div>
   <div class="overlay" id="adminOverlay" onclick="closeDrawer('admin')"></div>
 
@@ -781,9 +871,22 @@
         <div><h2>🍰 Products</h2><p class="sub">Manage catalogue & shelf life</p></div>
         <button class="btn btn-p" onclick="openModal('addProdModal')">➕ Add Product</button>
       </div>
+      <!-- Reorder info bar (admin only) -->
+      <div class="info green" id="reorderInfoBar" style="margin-bottom:14px">
+        <span>↕️</span>
+        <span>Drag rows or use ▲▼ buttons to reorder products. Order is saved and reflected everywhere — Start Day, End Day, and all product listings.</span>
+      </div>
       <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Product Name</th><th>Category</th><th>Price</th><th>Shelf Life</th><th>Stock Today</th><th>Actions</th></tr></thead>
+        <table id="prodTable">
+          <thead><tr>
+            <th class="reorder-col" style="width:40px"></th>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th class="prod-col-shelf">Shelf Life</th>
+            <th class="prod-col-stock">Stock Today</th>
+            <th>Actions</th>
+          </tr></thead>
           <tbody id="prodTbody"></tbody>
         </table>
       </div>
@@ -898,6 +1001,7 @@
       <div class="b"></div><div class="b"></div><div class="b"></div>
     </button>
     <div class="topbar-brand"><div class="tb-logo-wrap"><img class="tb-logo-img logo-img" id="staffTbLogo" alt="C for Cake"></div><small style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);margin-left:6px">Staff</small></div>
+    <button class="topbar-logout" onclick="logout()" aria-label="Logout">🚪 Logout</button>
   </div>
   <div class="overlay" id="staffOverlay" onclick="closeDrawer('staff')"></div>
 
@@ -1119,29 +1223,103 @@ const DB = {
   /* ── Products ── */
   async getProducts() {
     if (ONLINE) {
-      const rows = await this._req('products','GET',null,'?order=category,name');
-      // Normalize Supabase snake_case → camelCase so the rest of the app works consistently
-      return rows.map(r=>({
+      // Try ordering by display_order (requires SQL migration).
+      // Falls back to id order if the column doesn't exist yet — products still load normally.
+      let rows;
+      try {
+        rows = await this._req('products','GET',null,'?order=display_order.asc,id.asc');
+      } catch(e) {
+        // display_order column not yet added — fetch without it
+        rows = await this._req('products','GET',null,'?order=id.asc');
+      }
+      // Normalize Supabase snake_case → camelCase
+      const mapped = rows.map(r=>({
         id: r.id, name: r.name, category: r.category,
-        price: r.price, shelfLife: r.shelf_life || 4
+        price: r.price, shelfLife: r.shelf_life || 4,
+        displayOrder: r.display_order ?? r.id
       }));
+      // Apply any localStorage order saved before migration
+      const orderMap = JSON.parse(localStorage.getItem('productOrder') || '{}');
+      if(Object.keys(orderMap).length){
+        mapped.sort((a,b)=>{
+          const oa = orderMap[a.id] ?? a.displayOrder;
+          const ob = orderMap[b.id] ?? b.displayOrder;
+          return oa - ob;
+        });
+      }
+      return mapped;
     }
-    return JSON.parse(localStorage.getItem('products') || '[]');
+    const arr = JSON.parse(localStorage.getItem('products') || '[]');
+    // Apply saved display order from localStorage
+    const orderMap = JSON.parse(localStorage.getItem('productOrder') || '{}');
+    return arr.sort((a, b) => {
+      const oa = orderMap[a.id] ?? a.id;
+      const ob = orderMap[b.id] ?? b.id;
+      return oa - ob;
+    });
   },
   async saveProduct(p) {
     if (ONLINE) {
-      if (p.id) return this._req('products','PATCH',{name:p.name,category:p.category,price:p.price,shelf_life:p.shelfLife},`?id=eq.${p.id}`);
-      return this._req('products','POST',{name:p.name,category:p.category,price:p.price,shelf_life:p.shelfLife});
+      if (p.id) {
+        // UPDATE — patch all editable fields; display_order is managed separately via reorder
+        return this._req('products','PATCH',
+          {name:p.name, category:p.category, price:p.price, shelf_life:p.shelfLife},
+          `?id=eq.${p.id}`
+        );
+      } else {
+        // INSERT — assign display_order = current max + 1 so new product goes to bottom of list
+        const existing = await this._req('products','GET',null,'?select=display_order&order=display_order.desc&limit=1');
+        const nextOrder = existing.length ? (existing[0].display_order + 1) : 0;
+        return this._req('products','POST',
+          {name:p.name, category:p.category, price:p.price, shelf_life:p.shelfLife, display_order:nextOrder}
+        );
+      }
     }
+    // localStorage mode
     const arr = JSON.parse(localStorage.getItem('products')||'[]');
     if (p.id) { const i=arr.findIndex(x=>x.id===p.id); if(i>-1) arr[i]=p; }
     else { p.id=Math.max(...arr.map(x=>x.id),0)+1; arr.push(p); }
     localStorage.setItem('products', JSON.stringify(arr));
   },
   async deleteProduct(id) {
-    if (ONLINE) return this._req('products','DELETE',null,`?id=eq.${id}`);
+    if (ONLINE) {
+      await this._req('products','DELETE',null,`?id=eq.${id}`);
+      // Also remove this id from any cached productOrder in localStorage
+      try {
+        const orderMap = JSON.parse(localStorage.getItem('productOrder')||'{}');
+        delete orderMap[id];
+        localStorage.setItem('productOrder', JSON.stringify(orderMap));
+      } catch(e){}
+      return;
+    }
+    // localStorage mode
     const arr = JSON.parse(localStorage.getItem('products')||'[]');
     localStorage.setItem('products', JSON.stringify(arr.filter(p=>p.id!==id)));
+    // Clean up order map too
+    try {
+      const orderMap = JSON.parse(localStorage.getItem('productOrder')||'{}');
+      delete orderMap[id];
+      localStorage.setItem('productOrder', JSON.stringify(orderMap));
+    } catch(e){}
+  },
+  /* ── Save product display order ── */
+  async saveProductOrder(orderedIds) {
+    // Always save to localStorage as the universal fallback
+    const orderMap = {};
+    orderedIds.forEach((id, idx) => { orderMap[id] = idx; });
+    localStorage.setItem('productOrder', JSON.stringify(orderMap));
+    if (ONLINE) {
+      // Also try to update display_order in Supabase if the column exists
+      try {
+        const updates = orderedIds.map((id, idx) =>
+          this._req('products','PATCH',{display_order: idx},`?id=eq.${id}`)
+        );
+        await Promise.all(updates);
+      } catch(e) {
+        // Column doesn't exist yet — localStorage order is already saved above, no data loss
+        console.info('display_order column not in DB yet. Run SQL migration to persist order server-side. Using localStorage.');
+      }
+    }
   },
 
   /* ── Inventory ── */
@@ -1210,7 +1388,19 @@ const DB = {
     return localStorage.getItem(key);
   },
   async setSetting(key, value) {
-    if (ONLINE) return this._req('app_settings','PATCH',{value},`?key=eq.${key}`);
+    if (ONLINE) {
+      // Use UPSERT so it works whether the row already exists or not
+      const url = `${CONFIG.supabaseUrl}/rest/v1/app_settings`;
+      const h = {
+        'apikey': CONFIG.supabaseKey,
+        'Authorization': `Bearer ${CONFIG.supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      };
+      const r = await fetch(url, { method:'POST', headers:h, body: JSON.stringify({key, value}) });
+      if (!r.ok) throw new Error(`DB error: ${r.status} ${r.statusText}`);
+      return null;
+    }
     localStorage.setItem(key, value);
   },
 };
@@ -1603,31 +1793,38 @@ async function doLogin(){
 
   // Brute-force lockout check
   const lockSecs = SEC.isLockedOut();
-  if(lockSecs){ showErr(`🔒 Too many attempts. Try again in ${lockSecs}s.`); kClear(); return; }
+  if(lockSecs){ showErr('🔒 Too many attempts. Try again in '+lockSecs+'s.'); kClear(); return; }
 
-  // Hash entered PIN and compare against stored hash (auto-migrates plain-text on first use)
-  const aHash  = await SEC.getHashedPin('adminPin','2525');
-  const sHash  = await SEC.getHashedPin('staffPin','5525');
-  const entered = await SEC.hash(pin);
+  try {
+    // Hash entered PIN and compare against stored hash (auto-migrates plain-text on first use)
+    const aHash  = await SEC.getHashedPin('adminPin','2525');
+    const sHash  = await SEC.getHashedPin('staffPin','5525');
+    const entered = await SEC.hash(pin);
 
-  if(selectedRole==='admin' && entered===aHash){
-    SEC.clearFails();
-    currentUser='admin';
-    document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('adminDash').classList.remove('hidden');
-    kClear(); loadAdminDash();
-  } else if(selectedRole==='staff' && entered===sHash){
-    SEC.clearFails();
-    currentUser='staff';
-    document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('staffDash').classList.remove('hidden');
-    kClear(); loadStaffDash();
-  } else {
-    const fails = SEC.recordFail();
-    const rem   = SEC.MAX_ATTEMPTS - fails;
-    showErr(rem <= 0
-      ? '🔒 Account locked for 5 minutes.'
-      : `❌ Incorrect PIN — ${rem} attempt${rem!==1?'s':''} remaining`);
+    if(selectedRole==='admin' && entered===aHash){
+      SEC.clearFails();
+      currentUser='admin';
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('adminDash').classList.remove('hidden');
+      kClear(); loadAdminDash();
+    } else if(selectedRole==='staff' && entered===sHash){
+      SEC.clearFails();
+      currentUser='staff';
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('staffDash').classList.remove('hidden');
+      kClear(); loadStaffDash();
+    } else {
+      const fails = SEC.recordFail();
+      const rem   = SEC.MAX_ATTEMPTS - fails;
+      showErr(rem <= 0
+        ? '🔒 Account locked for 5 minutes.'
+        : '❌ Incorrect PIN — '+rem+' attempt'+(rem!==1?'s':'')+' remaining');
+      kClear();
+    }
+  } catch(err) {
+    console.error('Login error:', err);
+    const msg = err && err.message ? err.message : String(err);
+    showErr('⚠️ Login error: ' + msg);
     kClear();
   }
 }
@@ -1635,7 +1832,7 @@ async function doLogin(){
 function showErr(msg){
   const el=document.getElementById('pinError');
   el.textContent=msg; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'),3000);
+  setTimeout(()=>el.classList.remove('show'),8000);
 }
 
 function logout(){
@@ -1784,21 +1981,146 @@ async function loadProdTable(){
   const tbody=document.getElementById('prodTbody');
   tbody.innerHTML='';
   const catCls={Cakes:'cakes',Pastries:'pastries',Desserts:'desserts'};
-  products.forEach(p=>{
+  products.forEach((p, idx)=>{
     const sl=p.shelfLife||p.shelf_life||4;
     const stock=inventory.filter(i=>i.productId===p.id&&i.date===t).reduce((a,i)=>a+i.quantity,0);
-    tbody.innerHTML+=`<tr>
+    const isFirst=(idx===0), isLast=(idx===products.length-1);
+    const tr=document.createElement('tr');
+    tr.dataset.pid=p.id;
+    tr.draggable=true;
+    tr.innerHTML=`
+      <td class="reorder-col" style="text-align:center;padding:8px 6px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <div class="reorder-btns">
+            <button class="reorder-btn" title="Move up" onclick="moveProduct(${p.id},-1)" ${isFirst?'disabled':''}>▲</button>
+            <button class="reorder-btn" title="Move down" onclick="moveProduct(${p.id},1)" ${isLast?'disabled':''}>▼</button>
+          </div>
+        </div>
+      </td>
       <td><strong>${p.name}</strong></td>
       <td><span class="cat-badge ${catCls[p.category]||'default'}">${p.category}</span></td>
       <td><strong>₹${p.price}</strong></td>
-      <td><strong>${sl} days</strong></td>
-      <td>${stock>0?`<strong>${stock}</strong> units`:'<span style="color:#9ca3af">—</span>'}</td>
+      <td class="prod-col-shelf"><strong>${sl} days</strong></td>
+      <td class="prod-col-stock">${stock>0?`<strong>${stock}</strong> units`:'<span style="color:#9ca3af">—</span>'}</td>
       <td><div class="act-row">
         <button class="act-btn edt" onclick="openEditProd(${p.id})">✏️ Edit</button>
         <button class="act-btn del" onclick="deleteProd(${p.id})">🗑️ Delete</button>
-      </div></td>
-    </tr>`;
+      </div></td>`;
+    tbody.appendChild(tr);
   });
+  // Initialise drag-and-drop after rows are in DOM
+  initProdDragDrop();
+}
+
+/* ── Move product up or down by 1 position ── */
+async function moveProduct(id, direction){
+  const products=await DB.getProducts();
+  const idx=products.findIndex(p=>p.id===id);
+  if(idx===-1) return;
+  const newIdx=idx+direction;
+  if(newIdx<0||newIdx>=products.length) return;
+  // Swap
+  [products[idx],products[newIdx]]=[products[newIdx],products[idx]];
+  await DB.saveProductOrder(products.map(p=>p.id));
+  loadProdTable();
+}
+
+/* ── Drag-and-drop reordering for desktop + mobile ── */
+function initProdDragDrop(){
+  const tbody=document.getElementById('prodTbody');
+  let dragRow=null, dragOverRow=null;
+
+  // Desktop drag events
+  tbody.querySelectorAll('tr[draggable]').forEach(row=>{
+    row.addEventListener('dragstart', e=>{
+      dragRow=row;
+      row.classList.add('prod-row-dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    row.addEventListener('dragend', async ()=>{
+      row.classList.remove('prod-row-dragging');
+      tbody.querySelectorAll('tr').forEach(r=>r.classList.remove('prod-row-over'));
+      if(dragOverRow && dragOverRow!==dragRow){
+        await commitDragOrder();
+      }
+      dragRow=null; dragOverRow=null;
+    });
+    row.addEventListener('dragover', e=>{
+      e.preventDefault(); e.dataTransfer.dropEffect='move';
+      tbody.querySelectorAll('tr').forEach(r=>r.classList.remove('prod-row-over'));
+      if(row!==dragRow){ row.classList.add('prod-row-over'); dragOverRow=row; }
+    });
+    row.addEventListener('drop', e=>{
+      e.preventDefault();
+      if(dragRow && row!==dragRow){
+        const rows=[...tbody.querySelectorAll('tr')];
+        const fromIdx=rows.indexOf(dragRow);
+        const toIdx=rows.indexOf(row);
+        if(fromIdx<toIdx) row.after(dragRow);
+        else row.before(dragRow);
+      }
+    });
+  });
+
+  // Mobile touch drag (long-press to activate, then drag)
+  let touchDragRow=null, touchClone=null, touchOffsetY=0;
+  tbody.querySelectorAll('.drag-handle').forEach(handle=>{
+    handle.addEventListener('touchstart', e=>{
+      const row=handle.closest('tr');
+      touchDragRow=row;
+      const touch=e.touches[0];
+      const rect=row.getBoundingClientRect();
+      touchOffsetY=touch.clientY-rect.top;
+      touchClone=row.cloneNode(true);
+      touchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;
+        width:${rect.width}px;opacity:.85;z-index:9999;pointer-events:none;
+        background:#fff0f5;box-shadow:0 8px 24px rgba(0,0,0,.2);border-radius:8px;
+        border:1.5px solid var(--rose);`;
+      document.body.appendChild(touchClone);
+      row.style.opacity='.3';
+    },{passive:true});
+
+    handle.addEventListener('touchmove', e=>{
+      if(!touchClone) return;
+      e.preventDefault();
+      const touch=e.touches[0];
+      touchClone.style.top=(touch.clientY-touchOffsetY)+'px';
+      // Find which row we're hovering over
+      const rows=[...tbody.querySelectorAll('tr')];
+      tbody.querySelectorAll('tr').forEach(r=>r.classList.remove('prod-row-over'));
+      const hovRow=rows.find(r=>{
+        if(r===touchDragRow) return false;
+        const rect=r.getBoundingClientRect();
+        return touch.clientY>=rect.top && touch.clientY<=rect.bottom;
+      });
+      if(hovRow){ hovRow.classList.add('prod-row-over'); dragOverRow=hovRow; }
+    },{passive:false});
+
+    handle.addEventListener('touchend', async ()=>{
+      if(touchClone){ document.body.removeChild(touchClone); touchClone=null; }
+      if(touchDragRow) touchDragRow.style.opacity='';
+      tbody.querySelectorAll('tr').forEach(r=>r.classList.remove('prod-row-over'));
+      if(touchDragRow && dragOverRow && touchDragRow!==dragOverRow){
+        const rows=[...tbody.querySelectorAll('tr')];
+        const fromIdx=rows.indexOf(touchDragRow);
+        const toIdx=rows.indexOf(dragOverRow);
+        if(fromIdx<toIdx) dragOverRow.after(touchDragRow);
+        else dragOverRow.before(touchDragRow);
+        await commitDragOrder();
+      }
+      touchDragRow=null; dragOverRow=null;
+    },{passive:true});
+  });
+}
+
+/* ── Commit drag order to DB ── */
+async function commitDragOrder(){
+  const tbody=document.getElementById('prodTbody');
+  const orderedIds=[...tbody.querySelectorAll('tr[data-pid]')].map(r=>parseInt(r.dataset.pid));
+  await DB.saveProductOrder(orderedIds);
+  // Reload table to refresh ▲▼ button disabled states
+  loadProdTable();
 }
 
 async function addProduct(){
