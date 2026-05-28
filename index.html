@@ -79,6 +79,7 @@
 
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
+    html,body{overflow-x:hidden;max-width:100vw}
 
     :root{
       --rose:#d81b60;--rose-light:#ec407a;--rose-dark:#ad1457;
@@ -270,12 +271,25 @@
       display:none;position:sticky;top:0;z-index:250;height:56px;
       background:linear-gradient(90deg,var(--sb-bg),var(--sb-mid));
       border-bottom:1px solid rgba(255,255,255,.05);
-      align-items:center;justify-content:space-between;padding:0 18px;
+      align-items:center;padding:0 14px;gap:10px;
       box-shadow:0 4px 20px rgba(0,0,0,.35);
     }
-    .topbar-brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;color:#fff}
+    /* Brand takes all remaining space, pushing LIVE + Logout to the right */
+    .topbar-brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;color:#fff;flex:1;min-width:0}
     .topbar-brand span{font-size:21px;filter:drop-shadow(0 2px 8px rgba(216,27,96,.6))}
     .topbar-brand small{font-size:10px;font-weight:500;color:rgba(255,255,255,.45);margin-left:2px}
+    /* Inline topbar LIVE badge — replaces fixed badge when on dashboard */
+    .topbar-live{
+      display:none;align-items:center;gap:5px;
+      background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);
+      border-radius:20px;padding:5px 10px;
+      font-size:10px;font-weight:700;color:#fff;
+      white-space:nowrap;flex-shrink:0;transition:all .4s ease;
+    }
+    .topbar-live.connected{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.15)}
+    .topbar-live.connected .live-dot{background:#22c55e;animation:livePulse 1.8s ease-in-out infinite}
+    .topbar-live.connected .live-label{color:#86efac}
+    .topbar-live.checking .live-dot{background:#f59e0b;animation:livePulse 0.8s ease-in-out infinite}
     .hbg{background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.14);border-radius:8px;width:40px;height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;transition:all .2s}
     .hbg:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.28)}
     .hbg .b{width:20px;height:2px;background:#fff;border-radius:2px;transition:all .3s}
@@ -299,7 +313,7 @@
     .alert-bar .cls{margin-left:auto;background:none;border:none;cursor:pointer;font-size:18px;color:var(--critical)}
 
     /* ══ PAGE HEADER ══ */
-    .page-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:14px}
+    .page-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;margin-top:0;flex-wrap:wrap;gap:14px}
     .page-hdr h2{font-size:25px;font-weight:800;color:var(--text);letter-spacing:-.4px}
     .page-hdr .sub{font-size:12px;color:var(--text-3);margin-top:3px}
 
@@ -504,7 +518,7 @@
     .sum-val.sold{color:var(--fresh)}.sum-val.disc{color:var(--critical)}.sum-val.carry{color:var(--aging)}
     .eod-lock .lock-time{font-size:11px;color:#166534;opacity:.65;margin-bottom:0}
 
-    /* ══ LIVE STATUS BADGE (login top-right) ══ */
+    /* ══ LIVE STATUS BADGE — fixed, login page only ══ */
     .live-badge{
       position:fixed;top:16px;right:16px;z-index:999;
       display:flex;align-items:center;gap:6px;
@@ -512,13 +526,16 @@
       border:1px solid rgba(255,255,255,.15);
       border-radius:20px;padding:6px 12px;
       font-size:11px;font-weight:700;color:#fff;
-      transition:all .4s ease;
+      transition:all .4s ease;pointer-events:none;
     }
+    /* Hide fixed badge once logged in — topbar-live takes over */
+    .live-badge.dash-hidden{display:none!important}
     .live-dot{
       width:8px;height:8px;border-radius:50%;
       background:#6b7280;flex-shrink:0;transition:background .4s;
     }
-    .live-badge.connected .live-dot{
+    .live-badge.connected .live-dot,
+    .topbar-live.connected .live-dot{
       background:#22c55e;
       animation:livePulse 1.8s ease-in-out infinite;
     }
@@ -593,13 +610,12 @@
 
     /* ══ MOBILE: LOGOUT BUTTON IN TOPBAR ══ */
     .topbar-logout{
-      margin-left:auto;
       background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.2);
-      border-radius:8px;padding:6px 12px;
+      border-radius:8px;padding:6px 10px;
       color:#fff;font-size:12px;font-weight:700;font-family:'Poppins',sans-serif;
-      cursor:pointer;display:none;align-items:center;gap:6px;
+      cursor:pointer;display:none;align-items:center;gap:5px;
       -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-      min-height:40px;white-space:nowrap;
+      min-height:40px;white-space:nowrap;flex-shrink:0;
     }
     .topbar-logout:hover{background:rgba(255,255,255,.2)}
 
@@ -658,12 +674,13 @@
     }
     @media(max-width:900px){
       .topbar{display:flex}
+      .topbar-live{display:flex}
       .topbar-logout{display:inline-flex}
       .sb-close{display:flex}
       .sidebar{left:-100vw;right:auto;top:0;width:min(280px,85vw);height:100vh;transition:left .3s cubic-bezier(.4,0,.2,1);box-shadow:none;overflow:hidden}
       .sidebar.open{left:0;box-shadow:6px 0 36px rgba(0,0,0,.45)}
-      .main{margin-left:0;margin-right:0;padding:16px 14px}
-      .dash{flex-direction:column}
+      .main{margin-left:0;margin-right:0;padding:12px 14px 16px;width:100%;overflow-x:hidden}
+      .dash{flex-direction:column;gap:0}
       .fr-board{grid-template-columns:1fr 1fr}
       .page-hdr{flex-direction:column;gap:10px}
       .page-hdr h2{font-size:22px}
@@ -704,11 +721,39 @@
       /* Products table: hide less critical columns on small screens */
       .prod-col-shelf{display:none}
       .prod-col-stock{display:none}
+      /* ══ COMPACT HORIZONTAL FRESH-BATCH CARDS (≤600px) ══
+         Layout: [Info flex:1 min-width:0] [Stepper fixed 108px]
+         Stepper budget: btn(34) + input(40) + btn(34) = 108px
+         Card inner at 320px: 300px - 24px padding - 8px gap = 268px
+         Info gets: 268 - 108 = 160px → safe, no overflow possible   */
+      .fb-grid{grid-template-columns:1fr!important;gap:8px}
+      .fb-card{
+        display:flex;align-items:center;gap:8px;
+        padding:10px 12px;width:100%;max-width:100%;
+        overflow:hidden;
+      }
+      .fb-info{flex:1;min-width:0;overflow:hidden}
+      .fb-name{
+        font-size:12px;white-space:nowrap;
+        overflow:hidden;text-overflow:ellipsis;
+        margin-bottom:1px;
+      }
+      .fb-cat{font-size:10px;margin-bottom:2px}
+      .fb-price{font-size:13px;font-weight:800;margin-bottom:0}
+      /* Stepper: exact pixel width = 2 buttons + input, never overflows */
+      .fb-card .stepper{
+        flex-shrink:0;flex-grow:0;
+        width:108px;min-width:0;overflow:hidden;
+      }
+      .fb-card .stp-btn{width:34px;height:40px;font-size:18px;flex-shrink:0}
+      .fb-card .stp-inp{
+        flex:1;font-size:15px;
+        min-width:0;width:0;/* flex:1 handles width, prevents min-content overflow */
+      }
     }
     @media(max-width:480px){
-      .main{padding:12px 10px}
+      .main{padding:10px 10px 12px;width:100%;overflow-x:hidden}
       .g4{grid-template-columns:1fr}
-      .fb-grid{grid-template-columns:repeat(2,1fr)}
       .co-grid{grid-template-columns:1fr}
       .ed-grid{grid-template-columns:1fr}
       .ed-row{grid-template-columns:1fr 1fr}
@@ -729,9 +774,13 @@
       th{font-size:10px;padding:9px 8px}
       td{font-size:11px;padding:9px 8px}
       .act-btn{font-size:10px;padding:5px 8px}
-      /* Bigger stepper touches */
-      .stp-btn{width:46px;height:46px;font-size:20px}
+      /* Global stepper size on 480px (non-fb-card contexts) */
+      .stp-btn{width:44px;height:44px;font-size:20px}
       .stp-inp{font-size:16px}
+      /* fb-card stepper: MUST stay at fixed 108px — explicit override */
+      .fb-card .stepper{width:108px!important;flex-shrink:0!important}
+      .fb-card .stp-btn{width:34px!important;height:40px!important;font-size:18px!important}
+      .fb-card .stp-inp{font-size:15px!important;min-width:0!important;width:0!important}
       .fr-col-hdr{padding:12px 12px}
       .fr-card{padding:12px}
       .fc-qty{font-size:18px}
@@ -742,13 +791,25 @@
       .modal-box{padding:22px 18px;border-radius:16px}
       /* Page header button goes full width on tiny screens */
       .page-hdr .btn{width:100%;justify-content:center}
-      /* Reorder col smaller on mobile */
+      /* Reorder col hidden on mobile */
       .reorder-col{display:none}
     }
+    /* ══ 320px — tightest phones ══ */
     @media(max-width:360px){
-      .fb-grid{grid-template-columns:1fr}
+      .main{padding:8px 8px 12px}
+      .fb-card{padding:9px 10px;gap:6px}
+      .fb-card .stepper{width:104px!important}
+      .fb-card .stp-btn{width:32px!important;height:40px!important;font-size:16px!important}
       .kbtn{height:52px;font-size:18px}
       .keypad{gap:7px;max-width:240px}
+    }
+    @media(max-width:320px){
+      .main{padding:6px 6px 10px}
+      .fb-card{padding:8px 8px;gap:6px}
+      .fb-name{font-size:11px}
+      .fb-price{font-size:12px}
+      .fb-card .stepper{width:96px!important}
+      .fb-card .stp-btn{width:28px!important;height:40px!important;font-size:15px!important}
     }
   </style>
 </head>
@@ -809,7 +870,14 @@
     <button class="hbg" id="adminHbg" onclick="toggleDrawer('admin')" aria-label="Menu">
       <div class="b"></div><div class="b"></div><div class="b"></div>
     </button>
-    <div class="topbar-brand"><div class="tb-logo-wrap"><img class="tb-logo-img logo-img" id="adminTbLogo" alt="C for Cake"></div><small style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);margin-left:6px">Admin</small></div>
+    <div class="topbar-brand">
+      <div class="tb-logo-wrap"><img class="tb-logo-img logo-img" id="adminTbLogo" alt="C for Cake"></div>
+      <small style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);">Admin</small>
+    </div>
+    <div class="topbar-live checking" id="adminLiveBadge">
+      <div class="live-dot"></div>
+      <span class="live-label" id="adminLiveLabel">CHECKING</span>
+    </div>
     <button class="topbar-logout" onclick="logout()" aria-label="Logout">🚪 Logout</button>
   </div>
   <div class="overlay" id="adminOverlay" onclick="closeDrawer('admin')"></div>
@@ -1000,7 +1068,14 @@
     <button class="hbg" id="staffHbg" onclick="toggleDrawer('staff')" aria-label="Menu">
       <div class="b"></div><div class="b"></div><div class="b"></div>
     </button>
-    <div class="topbar-brand"><div class="tb-logo-wrap"><img class="tb-logo-img logo-img" id="staffTbLogo" alt="C for Cake"></div><small style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);margin-left:6px">Staff</small></div>
+    <div class="topbar-brand">
+      <div class="tb-logo-wrap"><img class="tb-logo-img logo-img" id="staffTbLogo" alt="C for Cake"></div>
+      <small style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);">Staff</small>
+    </div>
+    <div class="topbar-live checking" id="staffLiveBadge">
+      <div class="live-dot"></div>
+      <span class="live-label" id="staffLiveLabel">CHECKING</span>
+    </div>
     <button class="topbar-logout" onclick="logout()" aria-label="Logout">🚪 Logout</button>
   </div>
   <div class="overlay" id="staffOverlay" onclick="closeDrawer('staff')"></div>
@@ -1573,28 +1648,50 @@ const SEC = {
 
 /* ═══════════════════════════════════════════════════════════
    LIVE DATABASE STATUS BADGE
+   Updates: login-page fixed badge + both topbar inline badges
 ════════════════════════════════════════════════════════════ */
+function _applyLiveState(state){
+  // state: 'connected' | 'offline' | 'local'
+  const targets = [
+    { badge: document.getElementById('liveBadge'),      label: document.getElementById('liveLabel'),      base: 'live-badge' },
+    { badge: document.getElementById('adminLiveBadge'), label: document.getElementById('adminLiveLabel'), base: 'topbar-live' },
+    { badge: document.getElementById('staffLiveBadge'), label: document.getElementById('staffLiveLabel'), base: 'topbar-live' },
+  ];
+  targets.forEach(({badge,label,base})=>{
+    if(!badge||!label) return;
+    // Preserve dash-hidden so login-page fixed badge stays hidden after login
+    const hidden = badge.classList.contains('dash-hidden');
+    badge.style.borderColor=''; badge.style.background='';
+    label.style.color='';
+    badge.querySelector('.live-dot').style.background='';
+    if(state==='connected'){
+      badge.className = base+' connected'+(hidden?' dash-hidden':'');
+      label.textContent='LIVE';
+    } else if(state==='local'){
+      badge.className = base+(hidden?' dash-hidden':'');
+      badge.querySelector('.live-dot').style.background='#f59e0b';
+      label.textContent='LOCAL';
+    } else {
+      badge.className = base+(hidden?' dash-hidden':'');
+      badge.style.borderColor='rgba(239,68,68,.3)';
+      badge.style.background='rgba(239,68,68,.1)';
+      badge.querySelector('.live-dot').style.background='#ef4444';
+      label.textContent='OFFLINE';
+      label.style.color='#fca5a5';
+    }
+  });
+}
+
 async function checkDbStatus(){
-  const badge=document.getElementById('liveBadge');
-  const label=document.getElementById('liveLabel');
-  if(!ONLINE){
-    badge.className='live-badge';
-    label.textContent='LOCAL';
-    badge.querySelector('.live-dot').style.background='#f59e0b';
-    return;
-  }
+  if(!ONLINE){ _applyLiveState('local'); return; }
   try{
     const r=await fetch(`${CONFIG.supabaseUrl}/rest/v1/app_settings?limit=1`,{
       headers:{'apikey':CONFIG.supabaseKey,'Authorization':`Bearer ${CONFIG.supabaseKey}`}
     });
-    if(r.ok){badge.className='live-badge connected';label.textContent='LIVE';}
+    if(r.ok) _applyLiveState('connected');
     else throw new Error();
   }catch{
-    badge.className='live-badge';
-    badge.style.borderColor='rgba(239,68,68,.3)';
-    badge.style.background='rgba(239,68,68,.1)';
-    badge.querySelector('.live-dot').style.background='#ef4444';
-    label.textContent='OFFLINE';label.style.color='#fca5a5';
+    _applyLiveState('offline');
   }
 }
 setInterval(checkDbStatus,30000);
@@ -1806,13 +1903,13 @@ async function doLogin(){
       currentUser='admin';
       document.getElementById('loginPage').classList.add('hidden');
       document.getElementById('adminDash').classList.remove('hidden');
-      kClear(); loadAdminDash();
+      kClear(); _onLoginSuccess(); loadAdminDash();
     } else if(selectedRole==='staff' && entered===sHash){
       SEC.clearFails();
       currentUser='staff';
       document.getElementById('loginPage').classList.add('hidden');
       document.getElementById('staffDash').classList.remove('hidden');
-      kClear(); loadStaffDash();
+      kClear(); _onLoginSuccess(); loadStaffDash();
     } else {
       const fails = SEC.recordFail();
       const rem   = SEC.MAX_ATTEMPTS - fails;
@@ -1840,6 +1937,13 @@ function logout(){
   document.getElementById('loginPage').classList.remove('hidden');
   document.getElementById('adminDash').classList.add('hidden');
   document.getElementById('staffDash').classList.add('hidden');
+  // Show login-page fixed badge again
+  document.getElementById('liveBadge').classList.remove('dash-hidden');
+}
+
+/* Called after successful login to hide fixed badge (topbar-live takes over) */
+function _onLoginSuccess(){
+  document.getElementById('liveBadge').classList.add('dash-hidden');
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2431,9 +2535,11 @@ async function loadStartDay(){
   fbGrid.innerHTML='';
   products.forEach(p=>{
     fbGrid.innerHTML+=`<div class="fb-card">
-      <div class="fb-name">${p.name}</div>
-      <div class="fb-cat">${p.category}</div>
-      <div class="fb-price">₹${p.price}</div>
+      <div class="fb-info">
+        <div class="fb-name">${p.name}</div>
+        <div class="fb-cat">${p.category}</div>
+        <div class="fb-price">₹${p.price}</div>
+      </div>
       <div class="stepper">
         <button class="stp-btn" onclick="changeQty('start-${p.id}',-1)">−</button>
         <input type="number" class="stp-inp" id="start-${p.id}" value="0" min="0">
