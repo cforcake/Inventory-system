@@ -400,6 +400,8 @@
     .date-bar.green label{color:#166534}.date-bar.orange label{color:#92400e}
     .date-bar input[type=date]{padding:8px 12px;border:1.5px solid var(--fresh-bdr);border-radius:var(--r-sm);font-size:13px;font-family:'Poppins',sans-serif;font-weight:600;color:var(--text);background:#fff;cursor:pointer}
     .date-bar input[type=date]:focus{outline:none;border-color:var(--fresh);box-shadow:0 0 0 3px rgba(22,163,74,.1)}
+    .date-bar.orange input[type=date]{border-color:var(--aging-bdr)}
+    .date-bar.orange input[type=date]:focus{border-color:var(--aging);box-shadow:0 0 0 3px rgba(217,119,6,.1)}
     .date-bar .hint{font-size:11px;flex:1;opacity:.7}
     .date-bar.green .hint{color:#166534}.date-bar.orange .hint{color:#92400e}
     #endDayDateLocked{font-weight:700;font-size:14px;color:#92400e}
@@ -1182,11 +1184,11 @@
 
       <!-- ENTRY FORM — shown before submission -->
       <div id="eodFormSection">
-        <!-- Locked date display -->
+        <!-- Date picker — allows entry after midnight for previous day -->
         <div class="date-bar orange">
           <label>📅 Closing Date</label>
-          <span id="endDayDateLocked"></span>
-          <span class="hint">End of day always closes today's stock. Date is locked.</span>
+          <input type="date" id="endDatePick" onchange="loadEndDay()">
+          <span class="hint">Defaults to today. Pick a past date to submit end-of-day after midnight.</span>
         </div>
         <div class="info orange"><span>📋</span><span>Enter leftover and discarded quantities. Leftovers automatically carry forward to tomorrow with their original batch date.</span></div>
         <div id="edGrid" class="ed-grid"></div>
@@ -1284,15 +1286,22 @@ const DB = {
   /* ── Supabase REST helper ── */
   async _req(table, method='GET', body=null, qs='') {
     const url = `${CONFIG.supabaseUrl}/rest/v1/${table}${qs}`;
+    // POST (insert) uses return=representation so Supabase returns inserted rows and
+    // correctly handles array bodies. GET also needs it to return the result set.
+    // PATCH/DELETE use return=minimal (no body needed back).
+    const prefer = (method==='GET'||method==='POST') ? 'return=representation' : 'return=minimal';
     const h = {
       'apikey': CONFIG.supabaseKey,
       'Authorization': `Bearer ${CONFIG.supabaseKey}`,
       'Content-Type': 'application/json',
-      'Prefer': method==='GET' ? 'return=representation' : 'return=minimal'
+      'Prefer': prefer
     };
     const r = await fetch(url, { method, headers:h, body: body ? JSON.stringify(body) : undefined });
-    if (!r.ok) throw new Error(`DB error: ${r.status} ${r.statusText}`);
-    return method==='GET' ? r.json() : null;
+    if (!r.ok) {
+      const errText = await r.text().catch(()=>'');
+      throw new Error(`DB error: ${r.status} ${r.statusText}${errText?' — '+errText:''}`);
+    }
+    return (method==='GET'||method==='POST') ? r.json() : null;
   },
 
   /* ── Products ── */
@@ -1406,24 +1415,36 @@ const DB = {
     return JSON.parse(localStorage.getItem('inventory')||'[]');
   },
   async pushInventory(items) {
-    /* items = array of {productId,quantity,date,batchId,type} */
+    /* items = array of {productId,quantity,date,batchId,type}
+       Uses upsert (merge-duplicates on unique constraint) so re-submitting is safe */
     if (ONLINE) {
       const rows = items.map(i=>({product_id:i.productId,quantity:i.quantity,entry_date:i.date,batch_id:i.batchId,entry_type:i.type}));
-      return this._req('inventory','POST',rows);
+      const url = `${CONFIG.supabaseUrl}/rest/v1/inventory`;
+      const h = {
+        'apikey': CONFIG.supabaseKey,
+        'Authorization': `Bearer ${CONFIG.supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=representation'
+      };
+      const r = await fetch(url,{method:'POST',headers:h,body:JSON.stringify(rows)});
+      if(!r.ok){ const t=await r.text().catch(()=>''); throw new Error(`DB error: ${r.status} — ${t}`); }
+      return r.json();
     }
     let arr = JSON.parse(localStorage.getItem('inventory')||'[]');
     arr.push(...items);
     localStorage.setItem('inventory', JSON.stringify(arr));
   },
   async removeInventory(filter) {
-    /* filter: {productId,batchId,date,type} — all optional, matched by AND */
+    /* filter: {productId,batchId,date,type} — all optional, matched by AND
+       Safety: at least one filter param required to prevent accidental full-table wipe */
     if (ONLINE) {
-      let qs = '?';
-      if (filter.productId) qs += `product_id=eq.${filter.productId}&`;
-      if (filter.batchId)   qs += `batch_id=eq.${filter.batchId}&`;
-      if (filter.date)      qs += `entry_date=eq.${filter.date}&`;
-      if (filter.type)      qs += `entry_type=eq.${filter.type}&`;
-      return this._req('inventory','DELETE',null,qs.replace(/&$/,''));
+      const parts=[];
+      if (filter.productId) parts.push(`product_id=eq.${filter.productId}`);
+      if (filter.batchId)   parts.push(`batch_id=eq.${filter.batchId}`);
+      if (filter.date)      parts.push(`entry_date=eq.${filter.date}`);
+      if (filter.type)      parts.push(`entry_type=eq.${filter.type}`);
+      if(!parts.length){ console.warn('removeInventory called with no filters — skipped for safety'); return; }
+      return this._req('inventory','DELETE',null,'?'+parts.join('&'));
     }
     let arr = JSON.parse(localStorage.getItem('inventory')||'[]');
     arr = arr.filter(i => {
@@ -2006,7 +2027,12 @@ function sTab(btn,tabId){
   document.querySelectorAll('#staffSb .nav-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   if(tabId==='sStartDay')  loadStartDay();
-  if(tabId==='sEndDay')    loadEndDay();
+  if(tabId==='sEndDay'){
+    // Ensure EOD date picker is initialised before loading
+    const eodPick=document.getElementById('endDatePick');
+    if(eodPick && !eodPick.value){ eodPick.min=localDate(-3); eodPick.max=today(); eodPick.value=today(); }
+    loadEndDay();
+  }
   if(tabId==='sFreshness') buildFrBoard('staffFrBoard');
 }
 
@@ -2444,12 +2470,13 @@ async function buildFrBoard(containerId){
    STAFF DASHBOARD
 ════════════════════════════════════════════════════════════ */
 async function loadStaffDash(){
-  // Init date picker
+  // Init SOD date picker
   const pick=document.getElementById('startDatePick');
   const minD=localDate(-3);
   pick.min=minD; pick.max=today(); pick.value=today();
-  // End day locked date
-  document.getElementById('endDayDateLocked').textContent=fmtDate(today());
+  // Init EOD date picker — allow going back up to 3 days (for after-midnight submissions)
+  const eodPick=document.getElementById('endDatePick');
+  eodPick.min=localDate(-3); eodPick.max=today(); eodPick.value=today();
   await loadStartDay();
   await checkAlerts();
 }
@@ -2473,7 +2500,7 @@ async function loadStartDay(){
   const sel=(pick&&pick.value)?pick.value:today();
 
   // If already submitted for this date, show lock screen
-  if(localStorage.getItem('sodDone_'+sel)){
+  if(await isSodLocked(sel)){
     await showSodLockScreen(sel);
     return;
   }
@@ -2530,10 +2557,20 @@ async function loadStartDay(){
     coSec.classList.add('hidden');
   }
 
-  // Fresh batch grid
+  // Fresh batch grid — pre-fill existing quantities from DB so editing shows saved data
   const fbGrid=document.getElementById('fbGrid');
   fbGrid.innerHTML='';
+  // Build a map: productId → total fresh quantity already saved for this date
+  const freshQtyMap={};
+  inventory.forEach(item=>{
+    if(item.date!==sel||item.type!=='start_day') return;
+    const bd=getBatchDate(item.batchId);
+    if(bd===sel){ // only today's fresh batches (not carry-overs)
+      freshQtyMap[item.productId]=(freshQtyMap[item.productId]||0)+item.quantity;
+    }
+  });
   products.forEach(p=>{
+    const existingQty=freshQtyMap[p.id]||0;
     fbGrid.innerHTML+=`<div class="fb-card">
       <div class="fb-info">
         <div class="fb-name">${p.name}</div>
@@ -2542,7 +2579,7 @@ async function loadStartDay(){
       </div>
       <div class="stepper">
         <button class="stp-btn" onclick="changeQty('start-${p.id}',-1)">−</button>
-        <input type="number" class="stp-inp" id="start-${p.id}" value="0" min="0">
+        <input type="number" class="stp-inp" id="start-${p.id}" value="${existingQty}" min="0">
         <button class="stp-btn" onclick="changeQty('start-${p.id}',1)">+</button>
       </div>
     </div>`;
@@ -2584,8 +2621,8 @@ async function saveStartDay(){
 
   if(!hasEntry){ alert('⚠️ Please enter at least one quantity'); return; }
 
-  // Set SOD lock
-  localStorage.setItem('sodDone_'+sel,'1');
+  // Set SOD lock (Supabase-synced)
+  await setSodLock(sel);
   await showSodLockScreen(sel);
   await checkAlerts();
 }
@@ -2625,48 +2662,113 @@ async function editStartDay(){
   document.getElementById('sodLockScreen').classList.add('hidden');
   document.getElementById('sodFormSection').classList.remove('hidden');
   const sel = document.getElementById('startDatePick')?.value || today();
-  localStorage.removeItem('sodDone_' + sel);
+  await clearSodLock(sel);
   await loadStartDay();
 }
 
 /* ═══════════════════════════════════════════════════════════
-   END OF DAY — LOCK SYSTEM (Option B)
+   LOCK SYSTEM — SOD + EOD
+   When ONLINE: locks stored in Supabase day_locks table → syncs across all devices/browsers.
+   When OFFLINE: falls back to localStorage.
 ════════════════════════════════════════════════════════════ */
+
+/* ── Generic lock helpers (Supabase-backed) ── */
+async function getLock(key){
+  if(ONLINE){
+    try{
+      const rows = await DB._req('day_locks','GET',null,`?lock_key=eq.${encodeURIComponent(key)}&select=value`);
+      return rows.length ? rows[0].value : null;
+    }catch(e){ console.warn('getLock fallback to localStorage',e); }
+  }
+  return localStorage.getItem(key);
+}
+
+async function setLock(key, value){
+  if(ONLINE){
+    try{
+      const url = `${CONFIG.supabaseUrl}/rest/v1/day_locks`;
+      const h = {
+        'apikey': CONFIG.supabaseKey,
+        'Authorization': `Bearer ${CONFIG.supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      };
+      const r = await fetch(url,{method:'POST',headers:h,body:JSON.stringify({lock_key:key,value})});
+      if(!r.ok) throw new Error(r.status);
+      localStorage.setItem(key, value); // mirror locally for speed
+      return;
+    }catch(e){ console.warn('setLock fallback to localStorage',e); }
+  }
+  localStorage.setItem(key, value);
+}
+
+async function deleteLock(key){
+  if(ONLINE){
+    try{
+      await DB._req('day_locks','DELETE',null,`?lock_key=eq.${encodeURIComponent(key)}`);
+      localStorage.removeItem(key);
+      return;
+    }catch(e){ console.warn('deleteLock fallback to localStorage',e); }
+  }
+  localStorage.removeItem(key);
+}
+
+/* ── SOD lock helpers ── */
+function sodLockKey(date){ return 'sodDone_'+date; }
+
+async function isSodLocked(date){
+  const val = await getLock(sodLockKey(date));
+  return !!val;
+}
+
+async function setSodLock(date){
+  await setLock(sodLockKey(date), '1');
+}
+
+async function clearSodLock(date){
+  await deleteLock(sodLockKey(date));
+}
+
+/* ── EOD lock helpers ── */
 function eodLockKey(date){ return 'eodDone_'+date; }
 
-function isEodLocked(date){
-  return !!localStorage.getItem(eodLockKey(date));
+async function isEodLocked(date){
+  const val = await getLock(eodLockKey(date));
+  return !!val;
 }
 
-function getEodMeta(date){
-  const raw = localStorage.getItem(eodLockKey(date));
-  return raw ? JSON.parse(raw) : null;
+async function getEodMeta(date){
+  const raw = await getLock(eodLockKey(date));
+  if(!raw) return null;
+  try{ return JSON.parse(raw); }catch(e){ return null; }
 }
 
-function setEodLock(date, meta){
-  localStorage.setItem(eodLockKey(date), JSON.stringify(meta));
+async function setEodLock(date, meta){
+  await setLock(eodLockKey(date), JSON.stringify(meta));
 }
 
-function clearEodLock(date){
-  localStorage.removeItem(eodLockKey(date));
+async function clearEodLock(date){
+  await deleteLock(eodLockKey(date));
 }
 
 async function loadEndDay(){
-  const t = today();
-  document.getElementById('endDayDateLocked').textContent = fmtDate(t);
+  // Use the date picker value; default to today if not yet set
+  const pick = document.getElementById('endDatePick');
+  if(pick && !pick.value){ pick.value = today(); }
+  const t = (pick && pick.value) ? pick.value : today();
 
-  if(isEodLocked(t)){
-    showEodLockScreen(t);
+  if(await isEodLocked(t)){
+    await showEodLockScreen(t);
   } else {
-    await showEodForm(t);   // ← was missing await — grid was rendering empty
+    await showEodForm(t);
   }
 }
 
-function showEodLockScreen(t){
+async function showEodLockScreen(t){
   document.getElementById('eodLockScreen').classList.remove('hidden');
   document.getElementById('eodFormSection').classList.add('hidden');
 
-  const meta = getEodMeta(t);
+  const meta = await getEodMeta(t);
   if(!meta) return;
 
   document.getElementById('eodLockDate').textContent = fmtDate(t);
@@ -2684,6 +2786,7 @@ async function showEodForm(t){
 
   const products  = await DB.getProducts();
   const inventory = await DB.getInventory();
+  const sales     = await DB.getSales();
   const grid = document.getElementById('edGrid');
   grid.innerHTML = '';
 
@@ -2694,22 +2797,36 @@ async function showEodForm(t){
   if(!hasStock){
     grid.innerHTML = `<div class="card" style="text-align:center;padding:40px;color:var(--text-light)">
       <div style="font-size:32px;margin-bottom:10px">📭</div>
-      <p>No stock recorded for today. Complete Start Day first.</p>
+      <p>No stock recorded for <strong>${fmtDate(t)}</strong>. Complete Start Day entry first.</p>
     </div>`; return;
   }
+
+  // Calculate next-day date string for carry-forward lookup
+  const d = new Date(t+'T00:00:00');
+  d.setDate(d.getDate()+1);
+  const nextDay = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 
   products.forEach(p=>{
     const stock = inventory.filter(i=>i.productId===p.id&&i.date===t&&i.type==='start_day').reduce((a,i)=>a+i.quantity,0);
     if(stock===0) return;
+
+    // Pre-fill: if EOD was previously submitted and admin unlocked, recover values from DB
+    const soldQty   = sales.filter(s=>s.productId===p.id&&s.date===t&&s.type==='sold').reduce((a,s)=>a+s.quantity,0);
+    const discQty   = sales.filter(s=>s.productId===p.id&&s.date===t&&s.type==='discarded').reduce((a,s)=>a+s.quantity,0);
+    const carryQty  = inventory.filter(i=>i.productId===p.id&&i.date===nextDay&&i.type==='start_day').reduce((a,i)=>a+i.quantity,0);
+    // leftover = carry + any adjustments; if no previous entry found keep 0
+    const prevLeftover = soldQty||discQty||carryQty ? carryQty : 0;
+    const prevDiscard  = discQty;
+
     grid.innerHTML += `<div class="ed-card">
       <div class="ed-name">${p.name}</div>
-      <div class="ed-stock">Today's stock: <strong>${stock} units</strong></div>
+      <div class="ed-stock">${fmtDate(t)} stock: <strong>${stock} units</strong></div>
       <div class="ed-row">
         <div>
           <div class="ed-lbl">Leftover</div>
           <div class="stepper">
             <button class="stp-btn" onclick="changeQty('end-${p.id}',-1)">−</button>
-            <input type="number" class="stp-inp" id="end-${p.id}" value="0" min="0" max="${stock}">
+            <input type="number" class="stp-inp" id="end-${p.id}" value="${prevLeftover}" min="0" max="${stock}">
             <button class="stp-btn" onclick="changeQty('end-${p.id}',1)">+</button>
           </div>
         </div>
@@ -2717,7 +2834,7 @@ async function showEodForm(t){
           <div class="ed-lbl">Discarded</div>
           <div class="stepper">
             <button class="stp-btn" onclick="changeQty('dis-${p.id}',-1)">−</button>
-            <input type="number" class="stp-inp" id="dis-${p.id}" value="0" min="0" max="${stock}">
+            <input type="number" class="stp-inp" id="dis-${p.id}" value="${prevDiscard}" min="0" max="${stock}">
             <button class="stp-btn" onclick="changeQty('dis-${p.id}',1)">+</button>
           </div>
         </div>
@@ -2730,7 +2847,9 @@ async function saveEndDay(){
   const products  = await DB.getProducts();
   const inventory = await DB.getInventory();
   const sales     = await DB.getSales();
-  const t = today();
+  // Use the EOD date picker value (allows past-date entry after midnight)
+  const pick = document.getElementById('endDatePick');
+  const t = (pick && pick.value) ? pick.value : today();
 
   // ── Validate: leftover + discarded ≤ stock ──
   for(const p of products){
@@ -2741,14 +2860,15 @@ async function saveEndDay(){
     const dis  = parseInt(disEl.value)||0;
     const stock = inventory.filter(i=>i.productId===p.id&&i.date===t&&i.type==='start_day').reduce((a,i)=>a+i.quantity,0);
     if(left+dis > stock){
-      alert(`⚠️ ${p.name}: Leftover (${left}) + Discarded (${dis}) exceeds today's stock (${stock}). Please fix.`);
+      alert(`⚠️ ${p.name}: Leftover (${left}) + Discarded (${dis}) exceeds stock for ${fmtDate(t)} (${stock}). Please fix.`);
       return;
     }
   }
 
-  // ── Build tomorrow string ──
-  const tmr = new Date(); tmr.setDate(tmr.getDate()+1);
-  const tStr = tmr.getFullYear()+'-'+String(tmr.getMonth()+1).padStart(2,'0')+'-'+String(tmr.getDate()).padStart(2,'0');
+  // ── Build next-day string from the selected date (not necessarily "tomorrow" in calendar) ──
+  const selD = new Date(t+'T00:00:00');
+  selD.setDate(selD.getDate()+1);
+  const tStr = selD.getFullYear()+'-'+String(selD.getMonth()+1).padStart(2,'0')+'-'+String(selD.getDate()).padStart(2,'0');
 
   // ── Step 1: Wipe previous EOD data for today (supports clean overwrite on admin unlock) ──
   const affectedIds = new Set(
@@ -2827,25 +2947,46 @@ async function saveEndDay(){
   // ── Step 3: Lock ──
   const now = new Date();
   const submittedAt = now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
-  setEodLock(t, { totalSold, revenue, totalDisc, wastage, totalCarry, submittedAt });
+  await setEodLock(t, { totalSold, revenue, totalDisc, wastage, totalCarry, submittedAt });
 
-  showEodLockScreen(t);
+  await showEodLockScreen(t);
   alert(`✅ End of Day saved & locked!\n\nSold: ${totalSold} items · ₹${revenue.toLocaleString('en-IN')}\nCarried forward: ${totalCarry} items (freshest batches)`);
 }
 
 /* ── Admin: EOD unlock list ── */
-function loadEodUnlockList(){
+async function loadEodUnlockList(){
   const container = document.getElementById('eodUnlockList');
   if(!container) return;
+  container.innerHTML = '<p style="font-size:13px;color:var(--text-light)">Loading…</p>';
 
-  // Collect all locked EOD dates from localStorage
+  // Collect all locked EOD dates — from Supabase if online, else localStorage
   const locked = [];
-  for(let i = 0; i < localStorage.length; i++){
-    const key = localStorage.key(i);
-    if(key && key.startsWith('eodDone_')){
-      const date = key.replace('eodDone_', '');
-      const meta = getEodMeta(date);
-      if(meta) locked.push({ date, meta });
+  if(ONLINE){
+    try{
+      const rows = await DB._req('day_locks','GET',null,`?lock_key=like.eodDone_*&order=lock_key.desc`);
+      for(const row of rows){
+        const date = row.lock_key.replace('eodDone_','');
+        try{ locked.push({ date, meta: JSON.parse(row.value) }); }catch(e){}
+      }
+    }catch(e){
+      // fallback to localStorage
+      for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(key&&key.startsWith('eodDone_')){
+          const date=key.replace('eodDone_','');
+          const raw=localStorage.getItem(key);
+          try{ locked.push({ date, meta: JSON.parse(raw) }); }catch(e2){}
+        }
+      }
+    }
+  } else {
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(key&&key.startsWith('eodDone_')){
+        const date=key.replace('eodDone_','');
+        const raw=localStorage.getItem(key);
+        try{ locked.push({ date, meta: JSON.parse(raw) }); }catch(e){}
+      }
     }
   }
 
@@ -2881,8 +3022,8 @@ function loadEodUnlockList(){
 }
 
 async function adminUnlockEod(date, btn){
-  const meta = getEodMeta(date);
-  if(!meta){ alert('Entry not found — may already be unlocked.'); loadEodUnlockList(); return; }
+  const meta = await getEodMeta(date);
+  if(!meta){ alert('Entry not found — may already be unlocked.'); await loadEodUnlockList(); return; }
 
   const carryMsg = meta.totalCarry > 0
     ? `<br><br>⚠️ <strong>${meta.totalCarry} items</strong> were carried to the next day. If next day's Start Day was already submitted, re-entering may cause mismatches.`
@@ -2897,7 +3038,7 @@ async function adminUnlockEod(date, btn){
   });
   if(!ok) return;
 
-  clearEodLock(date);
+  await clearEodLock(date);
 
   const row = document.getElementById('unlock-row-' + date);
   if(row){
@@ -2911,8 +3052,9 @@ async function adminUnlockEod(date, btn){
 
 /* ── Staff: check if admin unlocked while on lock screen ── */
 async function checkEodUnlock(){
-  const t = today();
-  if(!isEodLocked(t)){
+  const pick = document.getElementById('endDatePick');
+  const t = (pick && pick.value) ? pick.value : today();
+  if(!(await isEodLocked(t))){
     // Admin has unlocked — switch to form
     await showEodForm(t);
     alert('✅ Admin has unlocked End of Day. You can now re-enter data.');
